@@ -1,0 +1,39 @@
+# Local dependencies and build output
+node_modules/
+dist/
+coverage/
+*.zip
+*.7z
+*.tar.gz
+
+# Runtime configuration, credentials and downloaded media
+/config/
+/data/
+/downloads/
+/bili-recognizer-data/
+config.json
+bili-session.json
+live-subscriptions.json
+task.json
+.env
+.env.*
+*.pem
+*.key
+*.mp4
+*.m4s
+*.flv
+*.log
+*.tmp
+*.bili-tmp
+bili-412-diagnostic*.json
+bili-download-*.json
+
+# Local reports and editor files
+/TEST-RESULTS.txt
+/PERFORMANCE-RESULTS.json
+.DS_Store
+Thumbs.db
+__pycache__/
+*.pyc
+.vscode/
+.idea/

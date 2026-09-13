@@ -1,0 +1,17 @@
+{
+  "method": "Node VM simulated DOM / clock; 20 subscriptions and 100 synthetic notification records, each with a 400-character stored message. Payload excludes response envelope and risk. No real browser layout or remote API measurement.",
+  "before": {
+    "version": "1.4.1",
+    "idleRequestsPerMinute": 12,
+    "unchangedListReplacementsFor20Renders": 40,
+    "sessionWritesFor20IdenticalSaves": 20,
+    "livePayloadBytes": 136695
+  },
+  "after": {
+    "version": "1.4.2",
+    "idleRequestsPerMinute": 4,
+    "unchangedListReplacementsFor20Renders": 0,
+    "sessionWritesFor20IdenticalSaves": 1,
+    "livePayloadBytes": 15646
+  }
+}

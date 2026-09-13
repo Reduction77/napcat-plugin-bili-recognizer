@@ -1,0 +1,25 @@
+{
+  "name": "napcat-plugin-bili-recognizer",
+  "plugin": "B站链接识别",
+  "version": "1.4.2",
+  "type": "module",
+  "main": "index.mjs",
+  "description": "B站链接识别与视频下载，内置扫码登录、WebUI 控制台、QQ 视频发送与开播下播通知",
+  "author": "朱朱白白",
+  "license": "ISC",
+  "engines": {
+    "node": ">=20.3.0"
+  },
+  "scripts": {
+    "test": "node --test test/*.test.mjs",
+    "benchmark": "node scripts/benchmark-performance.mjs",
+    "pack:plugin": "python3 tools/package.py"
+  },
+  "napcat": {
+    "tags": [
+      "工具",
+      "视频"
+    ],
+    "minVersion": "4.14.0"
+  }
+}
