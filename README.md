@@ -1,0 +1,2 @@
+# napcat-plugin-bili-recognizer
+
