@@ -54,7 +54,7 @@ async function mockT2I(options={}){
  return state;
 }
 
-const cardConfig=(base,extra={})=>({liveCard:true,liveCardRenderUrl:base,liveCardRenderMode:'astrbot',liveCardCustomRequest:'',liveCardRenderToken:'',liveCardPersona:'amis',liveCardTheme:'amis',liveCardDecor:'auto',liveCardRenderTimeoutSeconds:5,liveCardCacheMB:64,...extra});
+const cardConfig=(base,extra={})=>({liveCard:true,liveCardRenderUrl:base,liveCardRenderMode:'astrbot',liveCardCustomRequest:'',liveCardRenderToken:'',liveCardPersona:'amis',liveCardTheme:'amis',liveCardDecor:'auto',liveCardRenderTimeoutSeconds:25,liveCardCacheMB:64,...extra});
 
 async function setup(t,{config={},cardOptions={},client}={}){
  const dir=await fs.mkdtemp(path.join(os.tmpdir(),'bili-card-'));
@@ -163,6 +163,20 @@ test('HTML 转义与图片地址白名单',()=>{
  assert(!html.includes('<script>bad</script>'));
  assert(html.includes('&lt;script&gt;bad&lt;/script&gt;'));
  for(const theme of themes)assert(buildCardHtml(liveCardData({uid:'1',label:'主播'},{uid:'1',roomId:'1',name:'x',title:'t',startAt:Date.now()},'start',Date.now(),{}),{theme}).includes('<style>'));
+});
+
+test('发给渲染服务的 timeout 必须是毫秒（曾经误传 24ms 导致服务端必然超时）',async t=>{
+ const server=await mockT2I();t.after(()=>server.close());
+ // 默认配置 25 秒超时 → 传给 playwright 的应是毫秒级、且略小于客户端超时
+ await renderCard('<p>x</p>',cardConfig(server.base),{fetcher:globalThis.fetch});
+ const options=server.requests[0].options;
+ assert.equal(typeof options.timeout,'number');
+ assert.ok(options.timeout>=10000,`timeout 应是毫秒量级，实际 ${options.timeout}`);
+ assert.ok(options.timeout<=25000,`timeout 不应超过客户端超时，实际 ${options.timeout}`);
+ // 超时配置下限也要成立（3 秒）
+ await renderCard('<p>x</p>',cardConfig(server.base,{liveCardRenderTimeoutSeconds:3}),{fetcher:globalThis.fetch});
+ const small=server.requests[1].options.timeout;
+ assert.ok(small>=1000&&small<=3000,`3 秒配置应落在 1000–3000ms，实际 ${small}`);
 });
 
 test('渲染服务不可达、报错、超时、返回非图片时都给出可照做的提示',async t=>{

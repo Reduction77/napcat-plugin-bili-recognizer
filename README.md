@@ -2,7 +2,7 @@
 
 为 QQ 群聊和私聊提供 **B站链接解析、扫码登录、视频下载与直播开播／下播通知**，内置 WebUI 控制台。
 
-**当前版本：1.5.1** · **维护者：朱朱白白** · **许可证：ISC**
+**当前版本：1.5.2** · **维护者：朱朱白白** · **许可证：ISC**
 
 [安装](#安装) · [使用方法](#使用方法) · [直播通知](#直播通知) · [常见问题](docs/troubleshooting.md) · [开发与打包](docs/development.md) · [更新日志](CHANGELOG.md)
 
@@ -39,7 +39,7 @@
 
 ### 使用安装包
 
-1. 获取 `napcat-plugin-bili-recognizer-1.5.1.zip`。维护者可以按[打包文档](docs/development.md#生成插件安装包)从源码生成。
+1. 获取 `napcat-plugin-bili-recognizer-1.5.2.zip`。维护者可以按[打包文档](docs/development.md#生成插件安装包)从源码生成。
 2. NapCat 插件管理若提供本地 ZIP 导入，使用该入口安装；也可以手动解压到当前实例的插件目录。
 3. 手动安装的最终层级应是：`plugins/napcat-plugin-bili-recognizer/package.json`，同级有 `index.mjs`、`lib/` 和 `webui/`。避免多套一层目录。
 4. 刷新插件列表并启用 **B站链接识别**，必要时重启 NapCat。
@@ -192,7 +192,7 @@ npm test
 npm run benchmark
 ```
 
-完整测试需要本机 FFmpeg／ffprobe，并包含本地 HTTP 服务测试；没有 FFmpeg 时真实合并测试会跳过。当前 1.5.1 已通过 168 项本地测试，外部 B站和 NapCat 接口使用模拟响应，不能等同于所有服务器上的实机验证。详见[开发与验证](docs/development.md)。
+完整测试需要本机 FFmpeg／ffprobe，并包含本地 HTTP 服务测试；没有 FFmpeg 时真实合并测试会跳过。当前 1.5.2 已通过 169 项本地测试，外部 B站和 NapCat 接口使用模拟响应，不能等同于所有服务器上的实机验证。详见[开发与验证](docs/development.md)。
 
 1.4.2 减少了未变化列表的重绘、空闲轮询、会话重复写盘与诊断传输。可复现的计数与边界见[性能说明](docs/performance.md)。
 
