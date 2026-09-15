@@ -2,7 +2,7 @@
 
 为 QQ 群聊和私聊提供 **B站链接解析、扫码登录、视频下载与直播开播／下播通知**，内置 WebUI 控制台。
 
-**当前版本：1.5.4** · **维护者：朱朱白白** · **许可证：ISC**
+**当前版本：1.5.5** · **维护者：朱朱白白** · **许可证：ISC**
 
 [安装](#安装) · [使用方法](#使用方法) · [直播通知](#直播通知) · [常见问题](docs/troubleshooting.md) · [开发与打包](docs/development.md) · [更新日志](CHANGELOG.md)
 
@@ -39,7 +39,7 @@
 
 ### 使用安装包
 
-1. 获取 `napcat-plugin-bili-recognizer-1.5.4.zip`。维护者可以按[打包文档](docs/development.md#生成插件安装包)从源码生成。
+1. 获取 `napcat-plugin-bili-recognizer-1.5.5.zip`。维护者可以按[打包文档](docs/development.md#生成插件安装包)从源码生成。
 2. NapCat 插件管理若提供本地 ZIP 导入，使用该入口安装；也可以手动解压到当前实例的插件目录。
 3. 手动安装的最终层级应是：`plugins/napcat-plugin-bili-recognizer/package.json`，同级有 `index.mjs`、`lib/` 和 `webui/`。避免多套一层目录。
 4. 刷新插件列表并启用 **B站链接识别**，必要时重启 NapCat。

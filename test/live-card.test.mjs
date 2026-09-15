@@ -296,6 +296,21 @@ test('真实取图链路：封面与头像都会内联进卡片',async t=>{
  client.close();
 });
 
+test('头像不再被图床裁切，且取景位置可配置',async t=>{
+ const now=Date.now();
+ const card=liveCardData({uid:'1',label:'主播'},{uid:'1',roomId:'9',name:'主播',title:'标题',startAt:now},'start',now,{avatarPosition:'center 80%'});
+ assert.equal(card.avatarPosition,'center 80%');
+ const html=renderCardHtml({...card,cover:'',avatar:'data:image/webp;base64,AA',qr:''},{theme:'amis'});
+ assert.match(html,/object-position:center 80%/,'取景位置要写进样式');
+ // 头像 URL 不应再带 1c（居中裁剪成正方形会切掉头顶）
+ const {thumbnailUrl}=await import('../lib/live-card.mjs');
+ assert.match(thumbnailUrl('https://i0.hdslb.com/bfs/face/a.jpg',240),/@240w_90q\.webp$/);
+ assert.ok(!thumbnailUrl('https://i0.hdslb.com/bfs/face/a.jpg',240).includes('1c'));
+ const {normalize}=await import('../lib/config.mjs');
+ assert.equal(normalize({}).liveCardAvatarPosition,'center 35%');
+ assert.throws(()=>normalize({liveCardAvatarPosition:'center;background:url(x)'}));
+});
+
 test('渲染服务连续失败后熔断：暂停期间不再请求，到点自动重试',async t=>{
  const x=await setup(t,{cardOptions:{fail:'status'}});await x.add();await x.enable();await x.m.check();x.setStatus(1);
  await x.m.check();
