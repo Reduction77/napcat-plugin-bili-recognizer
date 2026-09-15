@@ -5,3 +5,8 @@
 .download-failure{margin-top:12px;white-space:normal}.download-failure summary{cursor:pointer;color:var(--primary,#7eacff);font-weight:600}.download-failure dl{display:grid;grid-template-columns:100px minmax(0,1fr);gap:8px 12px;margin:12px 0}.download-failure dt{opacity:.75}.download-failure dd{margin:0;overflow-wrap:anywhere}.download-failure .button{margin:6px 0}
 
 .live-window-row{display:grid;grid-template-columns:minmax(0,1fr) minmax(0,1fr) auto;gap:12px;align-items:end;margin:16px 0}.live-window-row .field{margin:0}.live-window-row input{min-width:0}#live-manual-panel{border:1px solid var(--accent,#517bd4)}#live-manual-panel strong{display:block;margin-bottom:10px}@media(max-width:540px){.live-window-row{grid-template-columns:minmax(0,1fr) minmax(0,1fr)}.live-window-row>button{grid-column:1/-1;justify-self:end}}
+
+/* 手动通知素材预览：只显示缩略图，避免大图撑破面板 */
+.manual-media{margin-top:8px}
+.manual-media:empty{display:none}
+.manual-media img{max-width:220px;max-height:130px;border-radius:8px;border:1px solid rgba(0,0,0,.08);display:block}

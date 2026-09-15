@@ -443,6 +443,69 @@ test('渲染自检区分「未配置」与「服务异常」',async t=>{
  assert.equal(off.reason,'OFF');
  assert.match(off.hint,/封面 \+ 文案/);
 });
+const PNG_1PX='data:image/png;base64,iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAYAAAAfFcSJAAAADUlEQVR42mP8z8BQDwAEhQGAhKmMIQAAAABJRU5ErkJggg==';
+
+test('手动通知可自定义标题、头像、封面，并记住给下一次用',async t=>{
+ const x=await setup(t);await x.add();await x.enable();
+ await x.m.manualNotify({revision:x.m.data.revision,uid:'123',kind:'start',title:'我自己的标题',avatar:PNG_1PX,cover:PNG_1PX});
+ await x.settle(2);
+ // 记住了
+ assert.deepEqual(x.m.data.manualConfig,{avatar:PNG_1PX,cover:PNG_1PX,title:'我自己的标题'});
+ const record=x.m.data.records.find(r=>r.source==='manual');
+ assert.equal(record.title,'我自己的标题');
+ assert.equal(record.avatar,PNG_1PX);
+ // 卡片用的是自定义素材：请求体里应出现两张内联图 + 自定义标题
+ const html=x.server.requests.at(-1).html;
+ assert.match(html,/我自己的标题/);
+ assert.ok((html.match(/data:image\/png;base64,/g)||[]).length>=2,'自定义头像与封面都要内联');
+});
+test('手动通知留空则回退在线检测到的资料，且不会改动检测状态',async t=>{
+ const x=await setup(t);await x.add();await x.enable();await x.m.check();x.setStatus(1);await x.m.check();
+ const detectedTitle=x.m.data.states['123'].title;
+ const detectedCover=x.m.data.states['123'].cover;
+ const before=JSON.stringify(x.m.data.states['123']);
+ await x.m.manualNotify({revision:x.m.data.revision,uid:'123',kind:'start',title:'',avatar:'',cover:''});
+ await x.settle(x.sent.length+2);
+ // 检测状态一个字节都不能变（这是手动/自动不串的关键）
+ assert.equal(JSON.stringify(x.m.data.states['123']),before,'手动发送不得写回检测状态');
+ const record=x.m.data.records.find(r=>r.source==='manual');
+ assert.equal(record.title,detectedTitle,'留空应使用在线检测到的标题');
+ assert.equal(record.cover,detectedCover,'留空应使用在线检测到的封面');
+ assert.deepEqual(x.m.data.manualConfig,{avatar:'',cover:'',title:''},'留空要显式记住为空，不能继承上一条');
+});
+test('在线检测的通知仍用 B站真实素材，不受手动配置影响',async t=>{
+ const x=await setup(t);await x.add();await x.enable();
+ // 注意：手动开播会按设计抑制 30 分钟内同一主播的自动开播通知（去重），
+ // 所以这里用另一个主播来验证「自动路径不受手动配置影响」。
+ await x.m.upsert({revision:x.m.data.revision,input:'999',type:'uid',label:'另一位主播',groups:['333'],enabled:true,start:true,end:true});
+ await x.m.manualNotify({revision:x.m.data.revision,uid:'123',kind:'start',title:'手动标题',avatar:PNG_1PX,cover:PNG_1PX});
+ await x.settle(2);
+ x.sent.length=0;
+ await x.m.check();x.setStatus(1);await x.m.check();
+ const auto=x.m.data.records.find(r=>r.source==='auto');
+ assert.equal(auto.title,'深塔海墟全都打不过！','自动通知必须用 B站标题');
+ assert.ok(!auto.avatar.startsWith('data:'),'自动通知不得使用手动上传的头像');
+ const html=x.server.requests.at(-1).html;
+ assert.ok(!html.includes('手动标题'),'自动卡片里不能出现手动标题');
+ assert.ok(!html.includes('data:image/png;base64,'),'自动卡片不得内联手动的图片');
+});
+test('补发沿用记录里的素材，不会串成当前配置',async t=>{
+ const x=await setup(t);await x.add();await x.enable();
+ await x.m.manualNotify({revision:x.m.data.revision,uid:'123',kind:'start',title:'第一次的标题',avatar:PNG_1PX,cover:PNG_1PX});
+ await x.settle(2);
+ const record=x.m.data.records.find(r=>r.source==='manual');
+ await x.m.transact(d=>{const r=d.records.find(r=>r.id===record.id);if(r)r.status='uncertain';});
+ // 之后再发一次不同标题，然后补发旧记录
+ await x.m.manualNotify({revision:x.m.data.revision,uid:'123',kind:'end',title:'第二次的标题'});
+ await x.settle(4);
+ x.sent.length=0;
+ await x.m.manualNotify({revision:x.m.data.revision,uid:'123',kind:'start',title:'',avatar:'',cover:'',recordId:record.id});
+ await x.settle(1);
+ const resent=x.m.data.records.find(r=>r.id===record.id);
+ assert.equal(resent.title,'第一次的标题','补发要沿用当时的标题');
+ assert.equal(resent.avatar,PNG_1PX,'补发要沿用当时的头像');
+});
+
 test('手动通知走卡片，并可对结果未知的记录补发同一张卡片',async t=>{
  const x=await setup(t);await x.add();await x.enable();await x.m.check();x.setStatus(1);await x.m.check();
  x.sent.length=0;

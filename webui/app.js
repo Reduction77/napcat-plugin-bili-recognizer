@@ -155,7 +155,13 @@ function prepareManualNotification(b){
  if(!sub||(b.dataset.record&&!record)){liveFeedback('订阅或记录已变化，请刷新后重试。');return;}
  manualIntent={revision:d.revision,uid:sub.uid,kind:b.dataset.kind,...(record?{recordId:record.id}:{})};
  const groups=record?[record.group]:sub.groups;
- $('#live-manual-panel').innerHTML=`<strong>确认发送${b.dataset.kind==='start'?'开播':'下播'}通知</strong><p>主播：${esc(sub.label||'UID '+sub.uid)}<br>目标群：${groups.map(esc).join('、')}</p><p>请先检查群里是否已收到，避免重复发送。${record?'本次仅补发这条记录对应的群。':''}此操作不访问 B站。</p><div class="inline"><button type="button" class="button primary" id="live-manual-send">确认发送</button><button type="button" class="button" id="live-manual-cancel">取消</button></div>`;
+ // 手动通知素材：默认继承上次手动发送的三项；从未发送过就是空白。
+ // 只作用于手动发送，在线检测的标题／封面／头像不受影响。
+ const remembered=d.manualConfig||{avatar:'',cover:'',title:''};
+ const detected=d.states?.[sub.uid]||{};
+ const mediaBox=(key,label,value,hint)=>`<div class="field"><label for="live-manual-${key}">${label}</label><div class="inline"><input id="live-manual-${key}" maxlength="3000000" value="${esc(value||'')}" placeholder="${esc(hint)}"><button type="button" class="button" id="live-manual-${key}-pick">选择图片</button><button type="button" class="button subtle" id="live-manual-${key}-clear">清空</button></div><input type="file" id="live-manual-${key}-file" accept="image/*" hidden><div id="live-manual-${key}-preview" class="manual-media">${value?`<img src="${esc(value)}" alt="素材预览">`:''}</div></div>`;
+ const custom=record?'':`<div class="notice" style="margin-top:12px"><strong>本次通知素材（可选）</strong><p>留空即使用<strong>上次手动发送</strong>的素材；若从未手动发送过，则使用<strong>在线检测</strong>到的直播间资料。这里填的内容只影响本次手动发送，不会改动检测状态。</p><div class="field"><label for="live-manual-title">直播标题</label><input id="live-manual-title" maxlength="60" value="${esc(remembered.title||'')}" placeholder="${esc(detected.title||'留空则用在线检测到的标题')}"></div>${mediaBox('avatar','头像',remembered.avatar,detected.face||'留空则用在线检测到的头像')}${mediaBox('cover','直播封面',remembered.cover,detected.cover||'留空则用在线检测到的封面')}<p>也可以直接粘贴图片直链（https），或点「选择图片」上传本地图片（不超过 2MB）。</p></div>`;
+ $('#live-manual-panel').innerHTML=`<strong>确认发送${b.dataset.kind==='start'?'开播':'下播'}通知</strong><p>主播：${esc(sub.label||'UID '+sub.uid)}<br>目标群：${groups.map(esc).join('、')}</p><p>请先检查群里是否已收到，避免重复发送。${record?'本次仅补发这条记录对应的群，沿用当时发送的素材。':''}此操作不访问 B站。</p>${custom}<div class="inline"><button type="button" class="button primary" id="live-manual-send">确认发送</button><button type="button" class="button" id="live-manual-cancel">取消</button></div>`;
  $('#live-manual-panel').hidden=false;liveFeedback('请核对下方主播和目标群，再点击「确认发送」。');$('#live-manual-send').focus?.({preventScroll:true});
 }
 function renderLive(d){
@@ -184,6 +190,23 @@ function renderLiveRows(d){
  if(renderChanged('#live-subscriptions',[d.subscriptions,d.states,d.errors,d.enabled,d.control,d.detection,d.manualSending]))$('#live-subscriptions').innerHTML=d.subscriptions.length?`<div class="table-wrap"><table><thead><tr><th>主播 / 房间</th><th>状态 / 最近检查</th><th>通知群 / 类型</th><th>操作</th></tr></thead><tbody>${d.subscriptions.map(sub=>{const s=d.states[sub.uid],problem=d.errors?.[sub.uid]?.message||s?.error;return `<tr><td>${s?resultLink('https://live.bilibili.com/'+s.roomId,sub.label||s.name):esc(sub.label||'UID '+sub.uid)}<small>UID ${esc(sub.uid)}${s?` · 房间 ${esc(s.roomId)}`:''}</small>${s?.title?`<small>${esc(s.title)}</small>`:''}</td><td>${badge(!sub.enabled?'订阅暂停':!d.enabled?'检测关闭':d.control==='stopped'?'手动停止':d.detection?.[sub.uid]==='outside_window'?'等待时段':!s?'等待首次检查':s.stopHits===1?'疑似下播，等待确认':s.status===1?'直播中':s.status===2?'轮播':'未开播',s?.status===1&&d.enabled&&sub.enabled?'':'neutral')}<small>${s?.checkedAt?esc(time(s.checkedAt)):'尚未成功检查'}</small>${d.detection?.[sub.uid]==='following'?'<small>时段外持续跟踪</small>':''}${problem?`<p class="danger">${esc(problem)}</p>`:''}</td><td>${sub.groups.map(esc).join('、')}<small>${[sub.start?'开播':'',sub.end?'下播':''].filter(Boolean).join(' / ')}</small></td><td><button class="button live-edit" data-uid="${esc(sub.uid)}">编辑</button> <button class="button danger live-remove" data-uid="${esc(sub.uid)}">删除</button><div class="inline" style="margin-top:8px"><button class="button live-manual-notify" data-uid="${esc(sub.uid)}" data-kind="start" ${(d.manualSending||[]).includes(sub.uid)?'disabled':''}>手动发开播</button><button class="button live-manual-notify" data-uid="${esc(sub.uid)}" data-kind="end" ${(d.manualSending||[]).includes(sub.uid)?'disabled':''}>手动发下播</button></div></td></tr>`;}).join('')}</tbody></table></div>`:empty('还没有订阅，请在上方添加主播并选择通知群。');
  if(renderChanged('#live-records',[d.records,d.manualSending]))$('#live-records').innerHTML=d.records.length?`<div class="table-wrap"><table><thead><tr><th>时间</th><th>主播 UID</th><th>群号 / 通知</th><th>发送结果</th></tr></thead><tbody>${d.records.map(r=>`<tr><td>${esc(time(r.time))}</td><td>${esc(r.uid)}</td><td>${esc(r.group)}<small>${r.kind==='start'?'开播':'下播'} · ${r.source==='manual'?'手动':'自动'}</small></td><td>${badge(r.status==='sent'?'已发送':r.status==='queued'?'排队中':r.status==='cancelled'?'未发送，已取消':r.status==='uncertain'?'失败／结果未知':'提交中／结果未知',r.status==='sent'?'':'neutral')}${r.message?`<small>${esc(r.message)}</small>`:''}${['uncertain','cancelled'].includes(r.status)?`<button class="button live-manual-notify" data-uid="${esc(r.uid)}" data-kind="${esc(r.kind)}" data-record="${esc(r.id)}" ${(d.manualSending||[]).includes(r.uid)?'disabled':''}>仅补发此群</button>`:''}</td></tr>`).join('')}</tbody></table></div>`:empty('还没有开播或下播通知记录。');
 }
+document.addEventListener('change',event=>{
+ const input=event.target;
+ if(!input||!['live-manual-avatar-file','live-manual-cover-file'].includes(input.id))return;
+ const file=(input.files||[])[0];if(!file)return;
+ const key=input.id==='live-manual-avatar-file'?'avatar':'cover';
+ if(!/^image\//.test(file.type)){error('请选择图片文件。');return;}
+ if(file.size>2*1024*1024){error('图片不要超过 2MB，压缩后再试。');return;}
+ const field=$(`#live-manual-${key}`);if(!field)return;
+ const reader=new FileReader();
+ reader.onload=()=>{
+  field.value=String(reader.result||'');
+  setHTML(`#live-manual-${key}-preview`,`<img src="${esc(field.value)}" alt="素材预览">`);
+  toast(key==='avatar'?'头像已选好，点「确认发送」生效':'封面已选好，点「确认发送」生效');
+ };
+ reader.onerror=()=>error('读取图片失败，请换一张试试。');
+ reader.readAsDataURL(file);
+});
 document.addEventListener('submit',async event=>{
  const form=event.target;if(!['live-settings-form','live-subscription-form'].includes(form.id))return;event.preventDefault();if(busy)return;
  busy=true;const button=form.querySelector('[type="submit"]');button.disabled=true;
@@ -226,12 +249,31 @@ document.addEventListener('click',async event=>{
    view.innerHTML=d.ok?`<div class="notice">渲染服务正常，用时约 ${d.ms} ms，输出约 ${Math.round(d.bytes/1024)} KB。</div>`:`<div class="notice error">${esc(d.hint||'渲染服务不可用。')}</div>`;
   }catch(e){view.innerHTML=`<div class="notice error">${esc(e.message)}</div>`;}finally{busy=false;b.disabled=false;}return;
  }
+ if(b.id==='live-manual-avatar-pick'||b.id==='live-manual-cover-pick'){
+  const key=b.id==='live-manual-avatar-pick'?'avatar':'cover';
+  const input=$(`#live-manual-${key}-file`);if(input){input.value='';input.click?.();}
+  return;
+ }
+ if(b.id==='live-manual-avatar-clear'||b.id==='live-manual-cover-clear'){
+  const key=b.id==='live-manual-avatar-clear'?'avatar':'cover';
+  const field=$(`#live-manual-${key}`);if(field)field.value='';
+  setHTML(`#live-manual-${key}-preview`,'');
+  toast(key==='avatar'?'头像已清空，将使用上次／在线检测到的头像':'封面已清空，将使用上次／在线检测到的封面');
+  return;
+ }
  if(b.id==='live-manual-cancel'){manualIntent=null;$('#live-manual-panel').hidden=true;liveFeedback('已取消，未发送通知。');return;}
  if(b.classList.contains('live-manual-notify')||b.id==='live-manual-send'){
   if(dirty){liveFeedback('有未保存的表单，请先保存或刷新放弃修改，再发送通知。');return;}
   if(b.classList.contains('live-manual-notify')){prepareManualNotification(b);return;}
   if(!manualIntent){liveFeedback('请先选择需要发送的开播或下播通知。');return;}
-  busy=true;b.disabled=true;const intent=manualIntent;manualIntent=null;liveFeedback('正在提交手动通知，请稍候…',false);
+  const intent=manualIntent;manualIntent=null;
+  // 新发送时把三项素材一起提交（留空也提交，表示显式清空并回退）；补发沿用记录里的素材。
+  if(intent.recordId===undefined){
+   intent.title=(($('#live-manual-title')||{}).value||'').trim();
+   intent.avatar=(($('#live-manual-avatar')||{}).value||'').trim();
+   intent.cover=(($('#live-manual-cover')||{}).value||'').trim();
+  }
+  liveFeedback('正在提交手动通知，请稍候…',false);
   try{
    const d=await post('/live/notify',intent);nextRefreshAt=0;renderLive(d);liveFeedback('手动通知已排队，请查看「最近通知」中的发送结果。');
   }catch(e){$('#live-manual-panel').hidden=true;liveFeedback('提交未完成：'+e.message+' 请刷新最近通知并检查群消息，再决定是否补发。');error(e.message);}

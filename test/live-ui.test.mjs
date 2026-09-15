@@ -3,7 +3,7 @@ import assert from 'node:assert/strict';
 import fs from 'node:fs/promises';
 import vm from 'node:vm';
 const source=(await fs.readFile(new URL('../webui/app.js',import.meta.url),'utf8')).replace("navigate('status');",'');
-const fixture=()=>({revision:2,enabled:true,intervalSeconds:60,subscriptions:[{uid:'123',label:'<img onerror=bad>',groups:['111'],start:true,end:true,enabled:true}],states:{'123':{name:'主播',roomId:'456',title:'<script>bad</script>',status:1,startAt:0,checkedAt:1000}},records:[],nextCheckAt:0,windows:[{startTime:'18:00',endTime:'23:00'}]});
+const fixture=()=>({revision:2,enabled:true,intervalSeconds:60,subscriptions:[{uid:'123',label:'<img onerror=bad>',groups:['111'],start:true,end:true,enabled:true}],states:{'123':{name:'主播',roomId:'456',title:'<script>bad</script>',face:'https://i2.hdslb.com/bfs/face/x.jpg',cover:'https://i0.hdslb.com/bfs/live/y.jpg',status:1,startAt:0,checkedAt:1000}},manualConfig:{avatar:'',cover:'',title:''},records:[],nextCheckAt:0,windows:[{startTime:'18:00',endTime:'23:00'}]});
 function setup(){
  const nodes=new Map(),listeners={},intervals=[],requests=[];const node=id=>{if(!nodes.has(id))nodes.set(id,{id,innerHTML:'',textContent:'',value:'',checked:false,disabled:false,hidden:false,classList:{toggle(){}},setAttribute(){}});return nodes.get(id);};
  const context=vm.createContext({console,URL,AbortSignal,Set,window:{BILI_BASE:'/api/Plugin/ext/bili',addEventListener(){}},document:{hidden:false,querySelector:node,querySelectorAll:()=>[],addEventListener:(e,fn)=>(listeners[e]??=[]).push(fn),body:{classList:{add(){}}}},localStorage:{getItem:()=> 'light'},setInterval:fn=>intervals.push(fn),setTimeout:()=>1,clearTimeout(){},confirm:()=>true,fetch:async(url,o)=>{requests.push({url,card:url.endsWith('/live/card'),body:o.body&&JSON.parse(o.body)});return {ok:true,status:200,json:async()=>({code:0,data:fixture()})};}});
@@ -47,7 +47,8 @@ test('浏览器禁止原生确认框时，开播和下播仍可经页内确认�
   assert.equal(x.node('#live-manual-panel').hidden,false);assert.match(x.node('#live-manual-panel').innerHTML,/目标群：111/);assert(!x.node('#live-manual-panel').innerHTML.includes('<img'));
   await click(x,'live-manual-cancel');assert.equal(x.business().length,0);assert.equal(x.node('#live-manual-panel').hidden,true);
   await click(x,'',{uid:'123',kind},'live-manual-notify');await click(x,'live-manual-send');
-  assert.equal(x.business().length,1);assert.equal(x.business()[0].url,'/api/Plugin/ext/bili/live/notify');assert.deepEqual(x.business()[0].body,{revision:2,uid:'123',kind});assert.match(x.node('#live-action-status').textContent,/已排队/);
+  assert.equal(x.business().length,1);assert.equal(x.business()[0].url,'/api/Plugin/ext/bili/live/notify');// 手动发送现在会带上三项素材（空字符串表示显式清空并回退到上次／在线检测的素材）
+ assert.deepEqual(x.business()[0].body,{revision:2,uid:'123',kind,title:'',avatar:'',cover:''});assert.match(x.node('#live-action-status').textContent,/已排队/);
  }
 });
 test('单群补发确认显示原群并传递原记录；刷新保留确认内容和对应版本',async()=>{
@@ -62,6 +63,51 @@ test('提交失败留在页内显示原因，清除发送意图且不会自动�
  x.context.fetch=async()=>{throw Error('网络中断');};await click(x,'live-manual-send');
  assert.match(x.node('#live-action-status').textContent,/网络中断/);assert.match(x.node('#live-action-status').textContent,/检查群消息/);assert.equal(x.node('#live-manual-panel').hidden,true);assert.equal(vm.runInContext('manualIntent',x.context),null);assert.equal(vm.runInContext('busy',x.context),false);
 });
+test('手动通知面板提供标题/头像/封面三项，并预填上次用的值',async()=>{
+ const x=setup();
+ x.context.fixture.manualConfig={title:'上次的标题',avatar:'data:image/png;base64,AA',cover:''};
+ vm.runInContext('liveSnapshot=fixture',x.context);
+ await click(x,'',{uid:'123',kind:'start'},'live-manual-notify');
+ const panel=x.node('#live-manual-panel').innerHTML;
+ assert.match(panel,/id="live-manual-title"/);
+ assert.match(panel,/id="live-manual-avatar"/);
+ assert.match(panel,/id="live-manual-cover"/);
+ assert.match(panel,/上次的标题/,'标题要预填上次的值');
+ assert.match(panel,/data:image\/png;base64,AA/,'头像要预填上次的值');
+ assert.match(panel,/id="live-manual-avatar-pick"/);
+ assert.match(panel,/id="live-manual-cover-pick"/);
+});
+test('手动通知空态给出提示，提交时把三项素材一起发给后端',async()=>{
+ const x=setup();
+ vm.runInContext('liveSnapshot=fixture',x.context);
+ await click(x,'',{uid:'123',kind:'start'},'live-manual-notify');
+ const panel=x.node('#live-manual-panel').innerHTML;
+ assert.match(panel,/上次手动发送/,'空白时要说明会继承上次手动的素材');
+ assert.match(panel,/在线检测/,'空白时要说明会回退到在线检测的资料');
+ x.node('#live-manual-title').value='我的标题';
+ x.node('#live-manual-avatar').value='data:image/png;base64,BB';
+ x.node('#live-manual-cover').value='';
+ await click(x,'live-manual-send');
+ const sent=x.business().find(r=>r.url.endsWith('/live/notify'));
+ assert.ok(sent,'应向 /live/notify 提交');
+ assert.equal(sent.body.title,'我的标题');
+ assert.equal(sent.body.avatar,'data:image/png;base64,BB');
+ assert.equal(sent.body.cover,'');
+});
+test('补发时不带素材字段，沿用记录里的内容',async()=>{
+ const x=setup();
+ x.context.fixture.records=[{id:'record-1',uid:'123',group:'111',kind:'end',status:'uncertain',text:'旧文案',title:'当时标题',avatar:'data:image/png;base64,CC',cover:''}];
+ vm.runInContext('liveSnapshot=fixture',x.context);
+ await click(x,'',{uid:'123',kind:'end',record:'record-1'},'live-manual-notify');
+ const panel=x.node('#live-manual-panel').innerHTML;
+ assert.match(panel,/沿用当时发送的素材/);
+ assert.ok(!panel.includes('id="live-manual-title"'),'补发不显示素材表单');
+ await click(x,'live-manual-send');
+ const sent=x.business().find(r=>r.url.endsWith('/live/notify'));
+ assert.equal(sent.body.recordId,'record-1');
+ assert.equal(sent.body.title,undefined,'补发不应改写素材字段');
+});
+
 test('未保存表单阻止手动发送时提供持续可见反馈，重复点击不会重复提交',async()=>{
  const x=setup();vm.runInContext('dirty=true',x.context);await click(x,'',{uid:'123',kind:'start'},'live-manual-notify');assert.equal(x.business().length,0);assert.equal(x.node('#live-action-status').hidden,false);assert.match(x.node('#live-action-status').textContent,/未保存/);
  vm.runInContext('dirty=false',x.context);await click(x,'',{uid:'123',kind:'start'},'live-manual-notify');
