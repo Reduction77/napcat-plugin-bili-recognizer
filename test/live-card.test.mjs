@@ -10,7 +10,7 @@ import fs from 'node:fs/promises';
 import os from 'node:os';
 import path from 'node:path';
 import {LiveMonitor,liveMessage,personas,themes} from '../lib/live.mjs';
-import {liveCardData,renderCard,buildCardHtml,renderCardHtml,escapeHtml,safeImageUrl,roomUrl,durationText,clockText,sniffImage,loadStickers,renderHint,CardRenderer,personaLabel} from '../lib/live-card.mjs';
+import {liveCardData,renderCard,buildCardHtml,renderCardHtml,escapeHtml,safeImageUrl,roomUrl,durationText,clockText,sniffImage,loadStickers,renderHint,CardRenderer,personaLabel,collectCardImages} from '../lib/live-card.mjs';
 
 // 1×1 基线 JPEG：用于让 mock 服务返回一个"看起来像图片"的响应。
 const TINY_JPEG=Buffer.from('/9j/4AAQSkZJRgABAQEASABIAAD/2wBDAAgGBgcGBQgHBwcJCQgKDBQNDAsLDBkSEw8UHRofHh0aHBwgJC4nICIsIxwcKDcpLDAxNDQ0Hyc5PTgyPC4zNDL/wAALCAABAAEBAREA/8QAFAABAAAAAAAAAAAAAAAAAAAACf/EABQQAQAAAAAAAAAAAAAAAAAAAAD/2gAIAQEAAD8AKp//2Q==','base64');
@@ -254,6 +254,48 @@ test('缩略图取不到时回退原图，仍有封面',async t=>{
  // 图床整体失败时仍要出卡片（只是没有封面图），不能因为取图失败就丢掉通知
  assert.equal(x.server.requests.length,1);
 });
+test('图床资源必须能取到：BiliClient 默认白名单会拒绝 *.hdslb.com，需要放行 + raw 模式',async t=>{
+ const {BiliClient,hostAllowed}=await import('../lib/bili.mjs');
+ const {RequestGate}=await import('../lib/net.mjs');
+ const {defaults}=await import('../lib/config.mjs');
+ const server=await mockT2I();t.after(()=>server.close());
+ // 用真实 BiliClient + 真实请求路径（改写域名指向本机 mock 图床）
+ const config={...defaults};
+ const client=new BiliClient(config,async(url,init)=>globalThis.fetch(String(url).replace(/^https:\/\/i\d\.hdslb\.com/,server.base+'/assets'),init),new RequestGate(()=>config),{});
+ const face='https://i0.hdslb.com/bfs/face/abc.jpg';
+ // 1) 默认不允许图床域名
+ await assert.rejects(()=>client.request(face,{}),/无效跳转域名/);
+ // 2) 放行后仍必须走 raw 模式，否则会被当成 JSON 解析
+ await assert.rejects(()=>client.request(face,{allowedHosts:['hdslb.com']}),/JSON/);
+ // 3) 放行 + raw 才能拿到字节
+ const response=await client.request(face,{allowedHosts:['hdslb.com'],raw:true});
+ assert.equal(response.ok,true);
+ const buffer=Buffer.from(await response.arrayBuffer());
+ assert.ok(buffer.length>0);
+ assert.match(String(response.headers.get('content-type')),/^image\//);
+ client.close();
+ // 白名单匹配不能被子域欺骗
+ assert.equal(hostAllowed('i0.hdslb.com',['hdslb.com']),true);
+ assert.equal(hostAllowed('evil-hdslb.com',['hdslb.com']),false);
+ assert.equal(hostAllowed('hdslb.com.evil.example',['hdslb.com']),false);
+ assert.equal(hostAllowed('i0.hdslb.com',[]),false);
+});
+test('真实取图链路：封面与头像都会内联进卡片',async t=>{
+ const {BiliClient}=await import('../lib/bili.mjs');
+ const {RequestGate}=await import('../lib/net.mjs');
+ const {defaults}=await import('../lib/config.mjs');
+ const server=await mockT2I();t.after(()=>server.close());
+ const config={...defaults};
+ const client=new BiliClient(config,async(url,init)=>globalThis.fetch(String(url).replace(/^https:\/\/i\d\.hdslb\.com/,server.base+'/assets'),init),new RequestGate(()=>config),{});
+ const now=Date.now();
+ const card=liveCardData({uid:'1',label:'主播'},{uid:'1',roomId:'9',name:'主播',title:'标题',startAt:now,areaName:'鸣潮'},'start',now,{});
+ const images=await collectCardImages(client,{...card,coverSource:'https://i0.hdslb.com/bfs/live/cover.jpg',avatarSource:'https://i2.hdslb.com/bfs/face/face.jpg',cover:'',avatar:''},{stickerDir:'',fs});
+ assert.match(images.cover,/^data:image\//,'封面必须内联成功');
+ assert.match(images.avatar,/^data:image\//,'头像必须内联成功');
+ assert.match(images.qr,/^data:image\/svg/,'二维码必须生成');
+ client.close();
+});
+
 test('渲染服务连续失败后熔断：暂停期间不再请求，到点自动重试',async t=>{
  const x=await setup(t,{cardOptions:{fail:'status'}});await x.add();await x.enable();await x.m.check();x.setStatus(1);
  await x.m.check();

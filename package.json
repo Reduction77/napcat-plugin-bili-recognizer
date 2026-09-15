@@ -1,7 +1,7 @@
 {
   "name": "napcat-plugin-bili-recognizer",
   "plugin": "B站链接识别",
-  "version": "1.5.2",
+  "version": "1.5.4",
   "type": "module",
   "main": "index.mjs",
   "description": "B站链接识别与视频下载，内置扫码登录、WebUI 控制台、QQ 视频发送与开播下播图片卡片通知",
