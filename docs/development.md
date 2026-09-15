@@ -41,7 +41,7 @@ Windows 也可使用：
 py -3 tools/package.py
 ```
 
-或执行 `npm run pack:plugin`（要求命令 `python3` 可用）。输出文件为 `dist/napcat-plugin-bili-recognizer-1.4.2.zip`。版本和文件名从 `package.json` 读取。
+或执行 `npm run pack:plugin`（要求命令 `python3` 可用）。输出文件为 `dist/napcat-plugin-bili-recognizer-<版本>.zip`（版本和文件名都从 `package.json` 读取）。
 
 安装包根目录直接包含入口和运行所需目录，不套项目文件夹。它包含 README、更新日志、许可和使用文档；测试、诊断脚本及性能脚本请从完整源码仓库使用。
 
