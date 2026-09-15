@@ -7,8 +7,8 @@ from zipfile import ZIP_DEFLATED, ZipFile
 
 ROOT = Path(__file__).resolve().parents[1]
 FILES = ('package.json', 'index.mjs', 'README.md', 'LICENSE', 'CHANGELOG.md', 'THIRD_PARTY_NOTICES.md')
-DIRECTORIES = ('lib', 'webui', 'docs')
-ALLOWED = {'.mjs', '.cjs', '.js', '.css', '.html', '.md', '.json', '.txt'}
+DIRECTORIES = ('lib', 'webui', 'assets', 'docs')
+ALLOWED = {'.mjs', '.cjs', '.js', '.css', '.html', '.md', '.json', '.txt', '.png', '.jpg', '.webp'}
 
 
 def main():

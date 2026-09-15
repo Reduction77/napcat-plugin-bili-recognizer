@@ -37,3 +37,6 @@ __pycache__/
 *.pyc
 .vscode/
 .idea/
+
+# 本地凭据（勿提交）
+.gh-token

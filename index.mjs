@@ -1,5 +1,6 @@
 import fs from 'node:fs/promises';
 import path from 'node:path';
+import {fileURLToPath} from 'node:url';
 import {defaults,normalize,schema,ids} from './lib/config.mjs';
 import {messageText,extract} from './lib/parser.mjs';
 import {BiliClient,formatInfo,publicError} from './lib/bili.mjs';
@@ -15,13 +16,15 @@ import {LiveMonitor} from './lib/live.mjs';
 export const plugin_config_ui=schema;
 const states=new Map();
 const stateKey=ctx=>ctx.configPath||ctx.pluginPath;
+// 插件自身目录：卡片模板与自备贴纸都在这里，与数据目录无关。
+const pluginRoot=path.dirname(fileURLToPath(import.meta.url));
 function log(ctx,level,message){const s=states.get(stateKey(ctx));if(s){s.logs.unshift({time:Date.now(),level,message});s.logs.length=Math.min(s.logs.length,200);}const fn=ctx.logger?.[level]||ctx.logger?.log;if(fn)fn.call(ctx.logger,`[B站识别] ${message}`);}
 function boundedSet(map,key,value){map.set(key,value);while(map.size>2000)map.delete(map.keys().next().value);}
 async function loadConfig(ctx){try{return normalize(JSON.parse(await fs.readFile(ctx.configPath,'utf8')));}catch(e){if(e.code!=='ENOENT')throw e;return {...defaults};}}
 export async function plugin_init(ctx){
  await plugin_cleanup(ctx);
  const config=await loadConfig(ctx);
- states.set(stateKey(ctx),{config,client:new BiliClient(config),seen:new Map(),locks:new Set(),events:new Map(),errors:new Map(),active:0,closed:false,startedAt:Date.now(),revision:0,writeQueue:Promise.resolve(),previewActive:0,stats:{success:0,failed:0,tests:0,testFailed:0},records:[],logs:[]});
+ states.set(stateKey(ctx),{config,client:new BiliClient(config),seen:new Map(),locks:new Set(),events:new Map(),errors:new Map(),active:0,closed:false,startedAt:Date.now(),revision:0,writeQueue:Promise.resolve(),previewActive:0,stats:{success:0,failed:0,tests:0,testFailed:0},records:[],logs:[],cards:[]});
  const state=states.get(stateKey(ctx));
  state.gate=new RequestGate(()=>state.config);state.traces=[];
  state.onTrace=row=>{if(row.phase!=='REQUEST'){state.traces.unshift(row);state.traces.length=Math.min(200,state.traces.length);}if(['RISK','ERROR','BLOCKED'].includes(row.phase)||(row.biliCode!=null&&row.biliCode!==0))log(ctx,'warn',traceLine(row));else if(state.config.debug)log(ctx,'debug',traceLine(row));};
@@ -35,7 +38,7 @@ export async function plugin_init(ctx){
  state.login=new QrLogin(()=>state,async(cookie,expected,stillCurrent,snapshot)=>updateConfig(ctx,current=>{
   if(!stillCurrent()||current.config.cookie!==expected)throw new BiliError('LOGIN_SESSION','登录状态已变化，请重新生成二维码');return {cookie};
  },snapshot));
- state.live=new LiveMonitor(ctx.dataPath||path.join(path.dirname(ctx.configPath),'bili-recognizer-data'),()=>state,(group,text)=>send(ctx,{message_type:'group',group_id:group},[{type:'text',data:{text}}]),(level,message)=>log(ctx,level,message));
+ state.live=new LiveMonitor(ctx.dataPath||path.join(path.dirname(ctx.configPath),'bili-recognizer-data'),()=>state,(group,payload)=>send(ctx,{message_type:'group',group_id:group},Array.isArray(payload)?payload:[{type:'text',data:{text:payload}}]),(level,message)=>log(ctx,level,message),{assetDir:path.join(pluginRoot,'assets','card')});
  await state.live.init();
  registerWebUI(ctx,()=>states.get(stateKey(ctx)),patch=>updateConfig(ctx,patch),(level,message)=>log(ctx,level,message));
  log(ctx,'info',`已加载 v${VERSION}；B站识别控制台已就绪。`);

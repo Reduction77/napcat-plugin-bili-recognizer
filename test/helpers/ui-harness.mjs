@@ -8,5 +8,7 @@ export async function uiHarness(source){
  class Clock extends Date{constructor(...args){super(...(args.length?args:[now]));}static now(){return now;}}
  const context=vm.createContext({console,Date:Clock,URL,AbortSignal,window:{BILI_BASE:'/bili',addEventListener(){}},document:{hidden:false,querySelector:node,querySelectorAll:()=>[],addEventListener:(event,fn)=>(listeners[event]??=[]).push(fn),body:{classList:{add(){}}}},localStorage:{getItem:()=> 'light'},setInterval:fn=>intervals.push(fn),setTimeout:()=>1,clearTimeout(){},confirm:()=>true,fetch:async(url,opts)=>{requests.push({url,body:opts.body});return {ok:true,status:200,json:async()=>({code:0,data:liveFixture()})};}});
  vm.runInContext(await fs.readFile(new URL('../../webui/download-details.js',import.meta.url),'utf8'),context);vm.runInContext(source.replace("navigate('status');",''),context);
- return {context,node,listeners,intervals,requests,writes,eval:code=>vm.runInContext(code,context),time:value=>now=value,tick:async delta=>{now+=delta;for(const fn of intervals)await fn();}};
+ // 卡片面板会额外请求 /live/card，轮询相关断言只看业务请求。
+ const polling=()=>requests.filter(r=>!String(r.url).endsWith('/live/card'));
+ return {context,node,listeners,intervals,requests,polling,writes,eval:code=>vm.runInContext(code,context),time:value=>now=value,tick:async delta=>{now+=delta;for(const fn of intervals)await fn();}};
 }

@@ -67,9 +67,9 @@ test('接口矩阵成功、未登录状态、WBI 和 HTTP 连接失败被分别�
  const failure=checkFixture(async()=>{throw new TypeError('network SECRET_SESSION');});failure.check.start(BV);await failure.check.task;assert(failure.check.report.rows.every(r=>r.httpStatus===null));assert.match(failure.check.report.conclusion,/不能认定/);assert(!JSON.stringify(failure.check.report).includes('SECRET_SESSION'));await failure.check.close();
 });
 test('服务器诊断 CLI 生成脱敏报告与正确退出码，不改写账号文件',async t=>{
- const {execFile}=await import('node:child_process');const {promisify}=await import('node:util');const {pathToFileURL}=await import('node:url');const exec=promisify(execFile);
+ const {execFile}=await import('node:child_process');const {promisify}=await import('node:util');const {pathToFileURL,fileURLToPath}=await import('node:url');const exec=promisify(execFile);
  const dir=await fs.mkdtemp(path.join(os.tmpdir(),'bili-cli-'));t.after(()=>fs.rm(dir,{recursive:true,force:true}));const loader=path.join(dir,'mock.mjs'),output=path.join(dir,'result.json');
  await fs.writeFile(loader,"globalThis.fetch=async()=>new Response(null,{status:412});");
- let failure;try{await exec(process.execPath,['--import',pathToFileURL(loader).href,'tools/diagnose-412.mjs',BV,'--mode','anonymous','--output',output],{cwd:new URL('..',import.meta.url).pathname});}catch(e){failure=e;}
+ let failure;try{await exec(process.execPath,['--import',pathToFileURL(loader).href,'tools/diagnose-412.mjs',BV,'--mode','anonymous','--output',output],{cwd:fileURLToPath(new URL('..',import.meta.url))});}catch(e){failure=e;}
  assert.equal(failure?.code,2);const report=JSON.parse(await fs.readFile(output,'utf8'));assert.equal(report.report.rows[0].httpStatus,412);assert.equal(report.report.rows[1].status,'blocked');assert.equal(report.environment.sessionFileLoaded,false);assert(!JSON.stringify(report).includes('SESSDATA='));
 });

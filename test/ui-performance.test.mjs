@@ -8,8 +8,8 @@ test('未变化的直播列表不重绘，状态和结果改变分别更新，�
  x.context.d.records[0].status='uncertain';x.eval('renderLiveRows(d)');assert.equal(x.writes.get('#live-records'),records+1);assert.match(x.node('#live-records').innerHTML,/仅补发此群/);x.eval('renderLive(d)');assert.match(x.node('#live-subscriptions').innerHTML,/主播0/);
 });
 test('空闲页面一分钟四次轮询，任务执行时五秒一次，隐藏时零请求',async()=>{
- const x=await uiHarness();x.context.d=liveFixture();x.eval("page='live';renderLive(d)");for(let i=0;i<12;i++)await x.tick(5000);assert.equal(x.requests.length,4);
- x.requests.length=0;x.context.document.hidden=true;for(let i=0;i<12;i++)await x.tick(5000);assert.equal(x.requests.length,0);
+ const x=await uiHarness();x.context.d=liveFixture();x.eval("page='live';renderLive(d)");for(let i=0;i<12;i++)await x.tick(5000);assert.equal(x.polling().length,4);
+ x.requests.length=0;x.context.document.hidden=true;for(let i=0;i<12;i++)await x.tick(5000);assert.equal(x.polling().length,0);
  x.context.document.hidden=false;x.context.fetch=async()=>{x.requests.push({});return {ok:true,status:200,json:async()=>({code:0,data:{...liveFixture(),manualSending:['100']}})};};x.eval('nextRefreshAt=0');for(let i=0;i<12;i++)await x.tick(5000);assert.equal(x.requests.length,12);
 });
 test('失败逐步退避，成功恢复刷新；慢请求不会并发堆积',async()=>{

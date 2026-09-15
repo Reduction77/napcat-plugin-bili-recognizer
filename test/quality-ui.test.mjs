@@ -41,7 +41,7 @@ test('下载错误详情直接展示阶段、原因、字节数和导出入口�
 test('页面先加载详情组件，再加载 app，支持带前缀的 NapCat 地址',async()=>{
  const html=await fs.readFile(new URL('../webui/index.html',import.meta.url),'utf8'),script=html.match(/<script>([\s\S]*?)<\/script>/)[1];const appended=[],listeners={};
  vm.runInNewContext(script,{window:{},location:{pathname:'/prefix/plugin/bili/dashboard'},document:{createElement:tag=>({tag}),head:{append:e=>appended.push(e)},addEventListener:(event,fn)=>listeners[event]=fn}});
- listeners.DOMContentLoaded();const helper=appended.at(-1);assert.equal(helper.src,'/prefix/plugin/bili/files/static/download-details.js?v=1.4.2');assert(!appended.some(e=>e.src?.includes('/app.js')));helper.onload();assert.match(appended.at(-1).src,/app.js\?v=1.4.2$/);
+ listeners.DOMContentLoaded();const helper=appended.at(-1);assert.equal(helper.src,'/prefix/plugin/bili/files/static/download-details.js?v=1.5.1');assert(!appended.some(e=>e.src?.includes('/app.js')));helper.onload();assert.match(appended.at(-1).src,/app.js\?v=1.5.1$/);
 });
 test('单任务诊断走鉴权路由，按任务隔离，不要求先运行账号自检',async()=>{
  const routes=new Map(),state={downloads:{list:()=>[{id:'a',failure:{causeCode:'ECONNRESET'}}]},traces:[{jobId:'a',phase:'ERROR'},{jobId:'b',phase:'ERROR'}]};

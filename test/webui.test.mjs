@@ -15,7 +15,7 @@ async function setup(t){
  async function call(method,url,body){let code=200,data;await routes.get(method+' '+url)({body},{status(x){code=x;return this;},json(x){data=x;return this;}});return {code,...data};}
  return {ctx,call,pages,sent,routes};
 }
-test('注册专属页面，所有业务接口走 NapCat 鉴权路由',async t=>{const {call,pages}=await setup(t);assert.equal(pages[0].path,'dashboard');const s=await call('GET','/status');assert.equal(s.data.version,'1.4.2');assert(!JSON.stringify(s).includes('secret-session'));});
+test('注册专属页面，所有业务接口走 NapCat 鉴权路由',async t=>{const {call,pages}=await setup(t);assert.equal(pages[0].path,'dashboard');const s=await call('GET','/status');assert.equal(s.data.version,'1.5.1');assert(!JSON.stringify(s).includes('secret-session'));});
 test('配置接口不返回 Cookie，普通保存保留 Cookie，支持明确清除',async t=>{const {ctx,call}=await setup(t);let c=(await call('GET','/config')).data;assert(c.cookieConfigured);assert(!('cookie' in c.config));let r=await call('POST','/config',{revision:c.revision,config:{showCover:false},cookieAction:'keep'});assert.equal(r.code,0);assert.equal((await plugin.plugin_get_config(ctx)).cookie,'secret-session');c=r.data;r=await call('POST','/config',{revision:c.revision,config:{},cookieAction:'clear'});assert.equal(r.data.cookieConfigured,false);});
 test('配置冲突与校验失败不覆盖旧设置',async t=>{const {ctx,call}=await setup(t);await call('POST','/config',{revision:0,config:{enabled:false}});const r=await call('POST','/config',{revision:0,config:{enabled:true}});assert.equal(r.code,-1);assert.equal((await plugin.plugin_get_config(ctx)).enabled,false);const invalid=await call('POST','/config',{revision:1,config:{groupIds:'invalid'}});assert.equal(invalid.code,-1);});
 test('并发群开关合并保存，群列表适配实际 OneBot 返回',async t=>{const {ctx,call}=await setup(t);await Promise.all([call('POST','/groups/toggle',{id:'123',enabled:false}),call('POST','/groups/toggle',{id:'456',enabled:false})]);const c=await plugin.plugin_get_config(ctx);assert.equal(c.groupMode,'deny');assert.equal(c.groupIds,'123\n456');const g=(await call('GET','/groups')).data;assert.equal(g.groups[0].enabled,false);await call('POST','/groups/toggle',{id:'123',enabled:true});assert.equal((await plugin.plugin_get_config(ctx)).groupIds,'456');});
@@ -84,6 +84,38 @@ test('直播 WebUI 路由验证订阅、保存设置和删除，初始化不发�
  const removed=await call('POST','/live/remove',{revision:d.revision,uid:'123'});assert.equal(removed.code,0);assert.equal(removed.data.subscriptions.length,0);assert.equal(sent.length,0);
 });
 
+test('通知卡片接口：状态、预览与自检都走鉴权路由，不发送 QQ',async t=>{
+ const http=await import('node:http');
+ const TINY=Buffer.from('/9j/4AAQSkZJRgABAQEASABIAAD/2wBDAAgGBgcGBQgHBwcJCQgKDBQNDAsLDBkSEw8UHRofHh0aHBwgJC4nICIsIxwcKDcpLDAxNDQ0Hyc5PTgyPC4zNDL/wAALCAABAAEBAREA/8QAFAABAAAAAAAAAAAAAAAAAAAACf/EABQQAQAAAAAAAAAAAAAAAAAAAAD/2gAIAQEAAD8AKp//2Q==','base64');
+ const server=http.createServer(async(req,res)=>{for await(const _ of req){}res.writeHead(200,{'Content-Type':'image/jpeg'});res.end(TINY);});
+ await new Promise(resolve=>server.listen(0,'127.0.0.1',resolve));
+ t.after(()=>new Promise(resolve=>server.close(resolve)));
+ const base=`http://127.0.0.1:${server.address().port}`;
+ const realFetch=globalThis.fetch;
+ const {ctx,call,sent}=await setup(t);
+ // setup() 把 globalThis.fetch 换成了 B站接口的替身；这里只放行本机 mock 渲染服务。
+ globalThis.fetch=async(input,init)=>{
+  const url=typeof input==='string'?input:String(input?.url||'');
+  if(url.startsWith(base))return realFetch(input,init);
+  return new Response(JSON.stringify({code:0,data:{'123':{room_id:'456',uname:'主播',title:'直播',live_status:0,live_time:0}}}));
+ };
+ const current=await plugin.plugin_get_config(ctx);
+ await plugin.plugin_set_config(ctx,{...current,liveCardRenderUrl:base});
+ await plugin.plugin_init(ctx);
+ const d=(await call('GET','/live/card')).data;
+ assert.equal(d.configured,true);assert.equal(d.enabled,true);assert.equal(d.persona,'amis');assert(d.personas.some(x=>x.key==='plain'));assert(d.themes.includes('min'));assert.equal(d.hint,'');
+ const preview=await call('POST','/live/card/preview',{kind:'end'});
+ assert.equal(preview.code,0,preview.message);
+ assert.match(preview.data.image,/^data:image\/jpeg;base64,/);
+ assert.ok(preview.data.bytes>0);assert.match(preview.data.text,/朱朱白白喵/);
+ const check=await call('POST','/live/card/test',{});
+ assert.equal(check.code,0);assert.equal(check.data.ok,true);assert.ok(check.data.bytes>0);
+ const current2=await plugin.plugin_get_config(ctx);
+ await plugin.plugin_set_config(ctx,{...current2,liveCardRenderUrl:''});
+ await plugin.plugin_init(ctx);
+ assert.equal((await call('POST','/live/card/preview',{kind:'start'})).code,-1);
+ assert.equal(sent.length,0,'卡片预览与自检都不能向 QQ 发送消息');
+});
 test('直播手动控制和补发走鉴权路由，停止检测后补发不请求 B站',async t=>{
  const {ctx,call,sent}=await setup(t);let calls=0;
  globalThis.fetch=async()=>{calls++;return new Response(JSON.stringify({code:0,data:{'123':{room_id:456,uname:'主播',title:'直播标题',live_status:0,live_time:0}}}));};
