@@ -10,3 +10,22 @@
 .manual-media{margin-top:8px}
 .manual-media:empty{display:none}
 .manual-media img{max-width:220px;max-height:130px;border-radius:8px;border:1px solid rgba(0,0,0,.08);display:block}
+
+/* 概览指标卡片可点击：整块卡片就是跳转按钮 */
+.cards button.card{margin:0;padding:21px;text-align:left;font:inherit;color:inherit;cursor:pointer;width:100%;transition:transform .12s,box-shadow .12s}
+.cards button.card:hover{transform:translateY(-2px);box-shadow:0 8px 26px #243d6324}
+body.dark .cards button.card:hover{box-shadow:0 0 0 1px var(--line)}
+
+/* 错误横幅带关闭按钮 */
+#error-banner:not([hidden]){display:flex;justify-content:space-between;align-items:flex-start;gap:12px}
+#error-banner #error-text{flex:1;min-width:0}
+#error-close{background:none;border:0;color:inherit;padding:0;font-size:15px;line-height:1.6;cursor:pointer;flex:none;opacity:.75}
+#error-close:hover{opacity:1}
+
+/* 直播页通知卡片设置：默认折叠，摘要在标题行展示当前状态 */
+details.live-card-box summary{cursor:pointer;font-size:16px;font-weight:600;list-style:none;display:flex;align-items:center;gap:10px;outline-offset:3px}
+details.live-card-box summary::-webkit-details-marker{display:none}
+details.live-card-box summary::before{content:'▸';color:var(--blue);font-size:13px;transition:transform .15s}
+details.live-card-box[open] summary::before{transform:rotate(90deg)}
+details.live-card-box summary small{color:var(--muted);font-weight:400;font-size:12px}
+details.live-card-box[open] summary{margin-bottom:16px}

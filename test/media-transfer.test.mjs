@@ -83,7 +83,8 @@ test('仅有一个 CDN 地址：两次真实 200 后断流仍可重试同地址�
  assert.deepEqual(f.calls,[primary,primary,primary]);assert.deepEqual(f.waits,[1000,2000]);
  assert.deepEqual(await fs.readFile(path.join(f.root,result.id,'video.mp4')),payload);
  const failures=f.traces.filter(r=>r.downloadFailure).map(r=>r.downloadFailure);
- assert.equal(failures.length,2);assert(failures.every(r=>r.causeCode==='UND_ERR_SOCKET'&&r.receivedBytes===21155758&&r.addressCount===1));
+ // 断流前实际收到的字节数取决于 TCP 缓冲与调度时序，只约束范围，不断言精确值。
+ assert.equal(failures.length,2);assert(failures.every(r=>r.causeCode==='UND_ERR_SOCKET'&&r.receivedBytes>0&&r.receivedBytes<=21155758&&r.addressCount===1));
 });
 test('单地址持续失败最多三次，错误详情区分请求次数与地址数量',async t=>{
  const f=await fixture(t,()=>{throw new TypeError('fetch failed',{cause:Object.assign(new Error('secret'),{code:'ECONNRESET'})});});
